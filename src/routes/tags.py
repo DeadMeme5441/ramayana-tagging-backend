@@ -79,3 +79,32 @@ async def get_main_topics():
         raise HTTPException(
             status_code=500, detail=f"Error fetching main topics: {str(e)}"
         )
+
+
+@router.get("/popular-topics")
+async def get_popular_main_topics(
+    limit: int = Query(10, ge=1, le=50, description="Number of topics to return")
+):
+    """
+    Get the most popular main topics based on the number of unique tags they contain.
+
+    This endpoint returns main topics sorted by how many different tags they categorize,
+    not by their occurrence count in the text. This helps identify the most
+    comprehensive categories in the tagging system.
+
+    Parameters:
+    - limit: Maximum number of topics to return
+
+    Returns:
+    - List of main topics with their tag counts and sample tags
+    """
+    try:
+        db = await get_database()
+        popular_topics = await db.get_popular_main_topics(limit=limit)
+
+        return {"popular_topics": popular_topics, "count": len(popular_topics)}
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Error fetching popular topics: {str(e)}"
+        )

@@ -778,6 +778,61 @@ class Database:
             "highlight_positions": highlight_positions,
         }
 
+    async def get_popular_main_topics(self, limit: int = 10) -> List[Dict[str, Any]]:
+        """
+        Get the most popular main topics based on the number of tags they contain.
+
+        This method finds main topics that categorize the most unique tags,
+        not based on occurrence count in the text but on how many different
+        tags fall under each main topic.
+
+        Parameters:
+        - limit: Maximum number of main topics to return
+
+        Returns:
+        - List of main topics with their tag counts and sample tags
+        """
+        if self._db is None:
+            raise RuntimeError("Database not initialized. Call initialize() first.")
+
+        # Use aggregation to group tags by main topic and count them
+        pipeline = [
+            # Unwind the main_topics array to work with individual topics
+            {"$unwind": "$main_topics"},
+            # Group by main topic and count unique tags
+            {
+                "$group": {
+                    "_id": "$main_topics",
+                    "tag_count": {"$sum": 1},
+                    "sample_tags": {"$push": "$name"},
+                    "total_occurrences": {
+                        "$sum": {"$size": {"$ifNull": ["$occurrences", []]}}
+                    },
+                }
+            },
+            # Sort by tag count in descending order
+            {"$sort": {"tag_count": -1}},
+            # Limit to the requested number
+            {"$limit": limit},
+            # Project to format the output
+            {
+                "$project": {
+                    "_id": 0,
+                    "name": "$_id",
+                    "tag_count": 1,
+                    "total_occurrences": 1,
+                    "sample_tags": {
+                        "$slice": ["$sample_tags", 5]
+                    },  # Include up to 5 sample tag names
+                }
+            },
+        ]
+
+        cursor = self._db.tags.aggregate(pipeline)
+        result = await cursor.to_list(length=limit)
+
+        return result
+
 
 # Create a function to get the database instance
 async def get_database():
