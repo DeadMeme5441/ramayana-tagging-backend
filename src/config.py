@@ -4,6 +4,9 @@ Configuration settings for the Ramayana Tagging Engine.
 
 import os
 from typing import Optional
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Database Configuration
 MONGO_URL = os.environ.get("MONGO_URL", "")
