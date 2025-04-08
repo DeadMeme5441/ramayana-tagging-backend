@@ -3,15 +3,13 @@ FROM	python:3.12-slim-bookworm
 WORKDIR	/app
 RUN	apt-get update && apt-get install -y \
 	--no-install-recommends \
-	curl \
-	ca-certificates \
+	build-essential \
+	gcc \
 	&& rm -rf /var/lib/apt/lists/*
-RUN	curl -sSf https://astral.sh/uv/install.sh | sh
-ENV	PATH	"/root/.local/bin/:$PATH"
-COPY	pyproject.toml	requirements.txt	./
-RUN	uv venv
-RUN	uv pip install --system -r requirements.txt
+COPY	requirements.txt	.
+RUN	pip install --no-cache-dir -r requirements.txt
 COPY	src/	./src/
+COPY	pyproject.toml	.
 COPY	.python-version	./.python-version
 RUN	mkdir -p /app/ramayana
 EXPOSE	8000
