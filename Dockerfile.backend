@@ -7,7 +7,7 @@ RUN	apt-get update && apt-get install -y \
 	ca-certificates \
 	&& rm -rf /var/lib/apt/lists/*
 RUN	curl -sSf https://astral.sh/uv/install.sh | sh
-ENV	PATH	"/root/.cargo/bin:$PATH"
+ENV	PATH	"/root/.local/bin/:$PATH"
 ENV	UV_SYSTEM_PYTHON	1
 ENV	UV_CACHE_DIR	/opt/uv-cache
 ENV	UV_COMPILE_BYTECODE	1
