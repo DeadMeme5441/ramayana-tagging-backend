@@ -84,17 +84,21 @@ def split_kaanda_file(input_file, output_dir):
 if __name__ == "__main__":
     input_files = [
         "test_files/1-बालकाण्डम्.txt",
+        "test_files/2-अयोध्याकाण्डम्.txt",
         "test_files/3-अरण्यकाण्डम्.txt",
         "test_files/4-किष्किन्धाकाण्डम्.txt",
         "test_files/5-सुन्दरकाण्डम्.txt",
+        "test_files/6-युद्धकाण्डम्.txt",
         "test_files/7-उत्तरकाण्डम्.txt",
     ]
 
     output_dirs = [
         "ramayana/1_बालकाण्डम्/",
+        "ramayana/2_अयोध्याकाण्डम्/",
         "ramayana/3_अरण्यकाण्डम्/",
         "ramayana/4_किष्किन्धाकाण्डम्/",
         "ramayana/5_सुन्दरकाण्डम्/",
+        "ramayana/6_युद्धकाण्डम्/",
         "ramayana/7_उत्तरकाण्डम्/",
     ]
 
