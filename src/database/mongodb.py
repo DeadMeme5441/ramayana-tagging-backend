@@ -735,31 +735,36 @@ class Database:
 
             # Get the first main topic as category
             main_topics = tag.get("main_topics", [])
-            category = main_topics[0] if main_topics else "Uncategorized"
 
-            # Add to category map
-            if category not in tags_by_category:
-                tags_by_category[category] = []
+            if not main_topics:
+                main_topics = ["Uncategorized"]
 
-            # Create simplified tag entry
-            tag_entry = {
-                "name": tag.get("name", ""),
-                "main_topics": main_topics,
-                "subject_info": tag.get("subject_info", []),
-                "pairs": tag.get("pairs", []),
-            }
+            for category in main_topics:
+                # category = main_topics[0] if main_topics else "Uncategorized"
 
-            tags_by_category[category].append(tag_entry)
+                # Add to category map
+                if category not in tags_by_category:
+                    tags_by_category[category] = []
 
-            # Add to position map for each pair
-            for start, end in tag.get("pairs", []):
-                position_key = f"{start}_{end}"
-                position_map[position_key] = {
-                    "tag_name": tag.get("name", ""),
-                    "category": category,
-                    "start": start,
-                    "end": end,
+                # Create simplified tag entry
+                tag_entry = {
+                    "name": tag.get("name", ""),
+                    "main_topics": main_topics,
+                    "subject_info": tag.get("subject_info", []),
+                    "pairs": tag.get("pairs", []),
                 }
+
+                tags_by_category[category].append(tag_entry)
+
+                # Add to position map for each pair
+                for start, end in tag.get("pairs", []):
+                    position_key = f"{start}_{end}"
+                    position_map[position_key] = {
+                        "tag_name": tag.get("name", ""),
+                        "category": category,
+                        "start": start,
+                        "end": end,
+                    }
 
         # Get flattened positions for highlighting
         highlight_positions = []
