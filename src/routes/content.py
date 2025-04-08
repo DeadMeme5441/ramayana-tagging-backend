@@ -165,3 +165,121 @@ async def get_tag_in_adhyaya(
         raise HTTPException(
             status_code=500, detail=f"Error retrieving tag information: {str(e)}"
         )
+
+
+@router.get("/rendered-text/{khanda_id}/{adhyaya_id}")
+async def get_rendered_adhyaya_text(
+    khanda_id: int = Path(..., description="The khanda ID", ge=1, le=7),
+    adhyaya_id: int = Path(..., description="The adhyaya ID", ge=1),
+):
+    """
+    Get pre-rendered adhyaya text with HTML markup for tag highlighting.
+
+    This endpoint returns HTML-formatted text with properly nested tags
+    for easy rendering on the frontend, handling overlapping tags appropriately.
+
+    Parameters:
+    - khanda_id: The khanda ID (1-7)
+    - adhyaya_id: The adhyaya ID
+
+    Returns:
+    - HTML-formatted text with tags and metadata
+    """
+    try:
+        db = await get_database()
+
+        # Get the adhyaya content
+        adhyaya = await db.get_adhyaya_content(
+            khanda_id=khanda_id, adhyaya_id=adhyaya_id
+        )
+
+        if not adhyaya:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Adhyaya not found with khanda_id={khanda_id}, adhyaya_id={adhyaya_id}",
+            )
+
+        # Extract content and highlight positions
+        content = adhyaya["content"]
+        highlight_positions = adhyaya.get("structured_tags", {}).get(
+            "highlight_positions", []
+        )
+
+        # Sort positions by start position (ascending) and end position (descending for proper nesting)
+        # This ensures proper nesting of overlapping tags
+        highlight_positions.sort(key=lambda x: (x["start"], -x["end"]))
+
+        # Generate HTML with tags
+        html_parts = []
+        current_pos = 0
+        open_tags = []
+
+        for i, pos in enumerate(highlight_positions):
+            start = pos["start"]
+            end = pos["end"]
+            tag_name = pos["tag_name"]
+
+            # Find tag metadata for category coloring
+            tag_info = None
+            for tag in adhyaya.get("tags", []):
+                if tag.get("name") == tag_name:
+                    tag_info = tag
+                    break
+
+            # Determine tag category for styling
+            category = "default"
+            if (
+                tag_info
+                and tag_info.get("main_topics")
+                and len(tag_info["main_topics"]) > 0
+            ):
+                category = tag_info["main_topics"][0]
+
+            # Add text before this tag
+            if start > current_pos:
+                html_parts.append(content[current_pos:start])
+
+            # Add opening tag with data attributes
+            tag_id = f"tag-{i}"
+            html_parts.append(
+                f'<span id="{tag_id}" class="tagged-text tag-category-{category.lower()}" data-tag-name="{tag_name}" data-tag-id="{i}">'
+            )
+
+            # Remember this open tag
+            open_tags.append((tag_id, end))
+
+            # Update current position
+            current_pos = start
+
+        # Add remaining text
+        if current_pos < len(content):
+            html_parts.append(content[current_pos:])
+
+        # Close all open tags in reverse order
+        for tag_id, end_pos in reversed(open_tags):
+            html_parts.append(f"</span>")
+
+        # Join all parts
+        html_content = "".join(html_parts)
+
+        # Process text for proper display (optional)
+        # This could include adding line breaks, etc.
+        html_content = html_content.replace("\n", "<br/>")
+
+        return {
+            "html_content": html_content,
+            "tag_metadata": adhyaya.get("structured_tags", {}).get("by_category", {}),
+            "adhyaya_info": {
+                "khanda_id": adhyaya["khanda_id"],
+                "adhyaya_id": adhyaya["adhyaya_id"],
+                "khanda_name": adhyaya.get("khanda_name", f"Khanda {khanda_id}"),
+                "title": adhyaya.get("title", f"Adhyaya {adhyaya_id}"),
+            },
+            "navigation": adhyaya.get("navigation", {"previous": None, "next": None}),
+        }
+
+    except Exception as e:
+        # Log the exception
+        raise HTTPException(
+            status_code=500, detail=f"Error generating rendered adhyaya text: {str(e)}"
+        )
