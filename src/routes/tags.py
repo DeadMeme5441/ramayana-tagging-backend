@@ -5,6 +5,7 @@ Tag routes for the Ramayana Tagging Engine.
 from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, Query, HTTPException, Depends
 from fastapi.responses import JSONResponse
+import re
 
 from src.database.mongodb import get_database
 
@@ -107,4 +108,59 @@ async def get_popular_main_topics(
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Error fetching popular topics: {str(e)}"
+        )
+
+
+@router.get("/suggestions")
+async def get_tag_suggestions(
+    query: str = Query(..., description="Partial tag name to get suggestions for"),
+    limit: int = Query(
+        10, ge=1, le=50, description="Maximum number of suggestions to return"
+    ),
+):
+    """
+    Get tag name suggestions based on partial input for autocomplete.
+
+    This endpoint provides quick, lightweight suggestions for the autocomplete
+    feature, searching both tag names and subject information.
+
+    Parameters:
+    - query: Partial tag name or subject info to search for
+    - limit: Maximum number of suggestions to return
+
+    Returns:
+    - List of matching tag names and metadata for autocomplete
+    """
+    try:
+        if not query or len(query.strip()) < 2:
+            return {"suggestions": []}
+
+        db = await get_database()
+
+        # Get tag suggestions from database
+        suggestions = await db.get_tag_suggestions(query, limit)
+
+        # Format suggestions for easy consumption by frontend
+        formatted_suggestions = []
+        for suggestion in suggestions:
+            # Determine if match is in name or subject_info for highlighting
+            match_type = "name"
+            if not re.search(query, suggestion["name"], re.IGNORECASE):
+                match_type = "subject_info"
+
+            formatted_suggestions.append(
+                {
+                    "name": suggestion["name"],
+                    "main_topics": suggestion.get("main_topics", []),
+                    "subject_info": suggestion.get("subject_info", []),
+                    "occurrence_count": suggestion.get("occurrence_count", 0),
+                    "match_type": match_type,
+                }
+            )
+
+        return {"suggestions": formatted_suggestions}
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Error fetching tag suggestions: {str(e)}"
         )

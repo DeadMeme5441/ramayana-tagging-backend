@@ -855,6 +855,89 @@ class Database:
 
         return result
 
+    async def get_tag_suggestions(
+        self, query: str, limit: int = 10
+    ) -> List[Dict[str, Any]]:
+        """
+        Get tag name suggestions based on partial input for autocomplete.
+
+        Parameters:
+        - query: Partial tag name or subject info to search for
+        - limit: Maximum number of suggestions to return
+
+        Returns:
+        - List of matching tag names and metadata for autocomplete
+        """
+        if self._db is None:
+            raise RuntimeError("Database not initialized. Call initialize() first.")
+
+        if not query or len(query.strip()) < 2:
+            return []
+
+        # Search for tags that match the query in name OR subject_info
+        pipeline = [
+            {
+                "$match": {
+                    "$or": [
+                        {
+                            "name": {"$regex": query, "$options": "i"}
+                        },  # Match in tag name
+                        {
+                            "subject_info": {
+                                "$elemMatch": {"$regex": query, "$options": "i"}
+                            }
+                        },  # Match in subject info
+                    ]
+                }
+            },
+            # Project only the fields we need
+            {
+                "$project": {
+                    "name": 1,
+                    "main_topics": 1,
+                    "subject_info": 1,
+                    "occurrence_count": {"$size": "$occurrences"},
+                }
+            },
+            # Sort by most relevant (name matches first, then occurrence count)
+            {
+                "$addFields": {
+                    "name_match": {
+                        "$cond": [
+                            {
+                                "$regexMatch": {
+                                    "input": "$name",
+                                    "regex": "^" + query,
+                                    "options": "i",
+                                }
+                            },
+                            10,  # Prioritize matches at beginning of tag name
+                            {
+                                "$cond": [
+                                    {
+                                        "$regexMatch": {
+                                            "input": "$name",
+                                            "regex": query,
+                                            "options": "i",
+                                        }
+                                    },
+                                    5,  # Then matches anywhere in tag name
+                                    0,  # Lower priority for subject info matches only
+                                ]
+                            },
+                        ]
+                    }
+                }
+            },
+            {"$sort": {"name_match": -1, "occurrence_count": -1}},
+            {"$limit": limit},
+        ]
+
+        cursor = self._db.tags.aggregate(pipeline)
+        suggestions = await cursor.to_list(length=limit)
+
+        return suggestions
+
 
 # Create a function to get the database instance
 async def get_database():
