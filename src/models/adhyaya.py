@@ -7,6 +7,7 @@ import re
 from typing import Dict, List, Optional, Any
 import logging
 from src.models.tag import Tag
+from src.models.adhyaya_names import adhyaya_names
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +29,8 @@ class AdhyayaTags:
         self.tags = []  # List of Tag objects
         self.opening_errors = []  # Tags with opening but no closing
         self.closing_errors = []  # Tags with closing but no opening
+
+        self.adhyaya_name = adhyaya_names.get(str(adhyaya_id), f"Sarga {adhyaya_id}")
 
         # Process the adhyaya
         self._find_tags()
@@ -132,6 +135,7 @@ class AdhyayaTags:
         return {
             "khanda_id": self.khanda_id,
             "adhyaya_id": self.adhyaya_id,
+            "title": self.adhyaya_name,
             "file_path": self.file_path,
             "content": self.content,  # Include the content for full-text search
             "tags": [tag.to_dict() for tag in self.tags],
