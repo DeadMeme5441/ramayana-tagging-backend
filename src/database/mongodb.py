@@ -353,7 +353,14 @@ class Database:
             {
                 "$match": {"occurrences": {"$ne": []}}
             },  # Only include tags with matching occurrences
-            {"$sort": {"name": 1}},
+            # Sort by khanda_id and adhyaya_id instead of tag name
+            {"$addFields": {"firstOccurrence": {"$arrayElemAt": ["$occurrences", 0]}}},
+            {
+                "$sort": {
+                    "firstOccurrence.khanda_id": 1,
+                    "firstOccurrence.adhyaya_id": 1,
+                }
+            },
             {"$skip": skip},
             {"$limit": limit},
         ]
@@ -528,7 +535,14 @@ class Database:
                                 "$and": [
                                     # This is where we apply the occurrence filters
                                     *(
-                                        [{"$eq": ["$$occurrence.khanda_id", khanda_id]}]
+                                        [
+                                            {
+                                                "$eq": [
+                                                    "$$occurrence.khanda_id",
+                                                    khanda_id,
+                                                ]
+                                            }
+                                        ]
                                         if khanda_id is not None
                                         else []
                                     ),
@@ -637,7 +651,8 @@ class Database:
         if current_index > 0:
             prev_adhyaya_id = adhyaya_ids[current_index - 1]
             prev_adhyaya = await self._db.adhyayas.find_one(
-                {"khanda_id": khanda_id, "adhyaya_id": prev_adhyaya_id}, {"title": 1}
+                {"khanda_id": khanda_id, "adhyaya_id": prev_adhyaya_id},
+                {"title": 1},
             )
             if prev_adhyaya:
                 navigation["previous"] = {
@@ -674,7 +689,8 @@ class Database:
         if current_index < len(adhyaya_ids) - 1:
             next_adhyaya_id = adhyaya_ids[current_index + 1]
             next_adhyaya = await self._db.adhyayas.find_one(
-                {"khanda_id": khanda_id, "adhyaya_id": next_adhyaya_id}, {"title": 1}
+                {"khanda_id": khanda_id, "adhyaya_id": next_adhyaya_id},
+                {"title": 1},
             )
             if next_adhyaya:
                 navigation["next"] = {
@@ -804,6 +820,8 @@ class Database:
         pipeline = [
             # Unwind the main_topics array to work with individual topics
             {"$unwind": "$main_topics"},
+            # Filter out excluded topics
+            {"$match": {"main_topics": {"$nin": ["राक्षसः", "रावणः"]}}},
             # Group by main topic and collect data
             {
                 "$group": {

@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from src.routes import api_router
 from src.database.mongodb import get_database
+from src.services.indexer import RamayanaIndexer
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +37,8 @@ async def startup_db_client():
     """Initialize database connection on startup."""
     logger.info("Initializing database connection")
     await get_database()
+    indexer = RamayanaIndexer()
+    await indexer.build_indices()
 
 
 @app.get("/", tags=["health"])
