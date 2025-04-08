@@ -790,23 +790,36 @@ class Database:
         - limit: Maximum number of main topics to return
 
         Returns:
-        - List of main topics with their tag counts and sample tags
+        - List of main topics with their tag counts and subject info
         """
         if self._db is None:
             raise RuntimeError("Database not initialized. Call initialize() first.")
 
-        # Use aggregation to group tags by main topic and count them
+        # Use aggregation to group tags by main topic and collect subject info
         pipeline = [
             # Unwind the main_topics array to work with individual topics
             {"$unwind": "$main_topics"},
-            # Group by main topic and count unique tags
+            # Group by main topic and collect data
             {
                 "$group": {
                     "_id": "$main_topics",
                     "tag_count": {"$sum": 1},
-                    "sample_tags": {"$push": "$name"},
                     "total_occurrences": {
                         "$sum": {"$size": {"$ifNull": ["$occurrences", []]}}
+                    },
+                    "all_subject_info": {
+                        "$push": {
+                            "$cond": [
+                                {
+                                    "$gt": [
+                                        {"$size": {"$ifNull": ["$subject_info", []]}},
+                                        0,
+                                    ]
+                                },
+                                {"$ifNull": ["$subject_info", []]},
+                                [],
+                            ]
+                        }
                     },
                 }
             },
@@ -814,16 +827,25 @@ class Database:
             {"$sort": {"tag_count": -1}},
             # Limit to the requested number
             {"$limit": limit},
-            # Project to format the output
+            # Transform the all_subject_info array (flatten and limit)
             {
                 "$project": {
                     "_id": 0,
                     "name": "$_id",
                     "tag_count": 1,
                     "total_occurrences": 1,
-                    "sample_tags": {
-                        "$slice": ["$sample_tags", 5]
-                    },  # Include up to 5 sample tag names
+                    "subject_info": {
+                        "$slice": [
+                            {
+                                "$reduce": {
+                                    "input": "$all_subject_info",
+                                    "initialValue": [],
+                                    "in": {"$concatArrays": ["$$value", "$$this"]},
+                                }
+                            },
+                            10,  # Limit to 10 subject info items
+                        ]
+                    },
                 }
             },
         ]
